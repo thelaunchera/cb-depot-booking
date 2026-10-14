@@ -1,0 +1,66 @@
+name: Prepare CB Depot Booking Website
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/prepare-booking.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out dedicated client repository
+        uses: actions/checkout@v4
+        with:
+          path: client
+          persist-credentials: true
+      - name: Read canonical approved booking source
+        uses: actions/checkout@v4
+        with:
+          repository: thelaunchera/the-launch-era-new-website-
+          ref: main
+          path: source
+          persist-credentials: false
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assemble client-only public files and photos
+        working-directory: source
+        env:
+          BOOKING_CLIENT: cb-depot
+        run: node scripts/build-client-bookings-cloudflare.mjs
+      - name: Check files, links and identity before copying
+        run: |
+          node --check source/scripts/build-client-bookings-cloudflare.mjs
+          test -s source/dist-client-bookings/index.html
+          test -s source/dist-client-bookings/booking/index.html
+          test -s source/dist-client-bookings/cb-depot/privacy/index.html
+          test -s source/dist-client-bookings/cb-depot/terms/index.html
+          test -s source/dist-client-bookings/booking/return/index.html
+          test -s source/dist-client-bookings/assets/cb-depot-experience.js
+          test -s source/dist-client-bookings/assets/clients/cb-depot/photos/hero-mobile.webp
+          test -s source/dist-client-bookings/assets/clients/cb-depot/photos/hero-desktop.webp
+          test -s source/dist-client-bookings/assets/clients/cb-depot/approved-favicon-192.png
+          cmp source/dist-client-bookings/index.html source/dist-client-bookings/cb-depot/index.html
+          grep -q "We bring professional car detailing to your location" source/dist-client-bookings/assets/cb-depot-experience.js
+          grep -q 'CB Depot' source/dist-client-bookings/index.html
+      - name: Save complete client website to this repository
+        run: |
+          mkdir -p client/public
+          cp -a source/dist-client-bookings/. client/public/
+          cd client
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public
+          if git diff --cached --quiet; then
+            echo "CB Depot assets are already up to date."
+          else
+            git commit -m "Publish isolated CB Depot booking page, photos, and support routes"
+            git push origin HEAD:main
+          fi
