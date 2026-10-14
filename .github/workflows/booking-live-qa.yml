@@ -1,0 +1,20 @@
+name: CB Depot Public Booking QA
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'qa-smoke.mjs'
+      - '.github/workflows/booking-live-qa.yml'
+      - 'public/**'
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check qa-smoke.mjs
+      - run: node qa-smoke.mjs
